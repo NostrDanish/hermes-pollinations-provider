@@ -5,10 +5,10 @@ as a named provider without switching your default model.
 
 ## What it does
 
-- Copies `plugins/model-providers/pollinations/` into `$HERMES_HOME/plugins/model-providers/pollinations/`
-- Writes `providers.pollinations` in `config.yaml` via `hermes config set`
-- Leaves `model.provider` and `model.default` untouched
-- Does **not** write an API key or send a completion
+- Installs the bundled `pollinations` model-provider plugin under your Hermes home.
+- Adds a `providers.pollinations` entry using the live model catalog.
+- Leaves `model.provider` and `model.default` untouched.
+- Does **not** write an API key or send a completion.
 
 ## Install
 
@@ -17,7 +17,7 @@ Add this repo as a skill tap, then install the skill:
 ```bash
 hermes skills tap add NostrDanish/hermes-pollinations-provider
 hermes skills install NostrDanish/hermes-pollinations-provider/skills/hermes-pollinations-provider --yes
-cd "$(hermes skills path hermes-pollinations-provider 2>/dev/null || echo "$HOME/.hermes/skills/hermes-pollinations-provider")"
+cd "$HOME/.hermes/skills/hermes-pollinations-provider"
 python3 scripts/add_pollinations.py --apply
 ```
 
@@ -31,16 +31,11 @@ python3 scripts/add_pollinations.py --apply
 
 ## Add your key
 
-Get a secret key at https://enter.pollinations.ai/keys, then either:
+Get a secret key at https://enter.pollinations.ai/keys, then set it in your
+environment:
 
 ```bash
-hermes auth add pollinations
-```
-
-or write it to `~/.hermes/.env` (mode 600):
-
-```bash
-HERMES_CUSTOM_POLLINATIONS_API_KEY="sk_..."
+export HERMES_CUSTOM_POLLINATIONS_API_KEY="sk_..."
 ```
 
 Never paste the key into chat.
