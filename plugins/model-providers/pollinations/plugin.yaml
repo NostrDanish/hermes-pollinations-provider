@@ -1,0 +1,5 @@
+name: pollinations
+kind: model-provider
+version: 0.1.0
+description: Pollinations — OpenAI-compatible gen.pollinations.ai (Pollen)
+author: NousResearch
