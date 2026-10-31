@@ -17,7 +17,6 @@ A request spends Pollen. Quest Pollen is a finite earned balance, not a free poo
 ```bash
 # add the key yourself — do not paste it into chat
 hermes auth add pollinations
-# or write HERMES_CUSTOM_POLLINATIONS_API_KEY into ~/.hermes/.env (mode 600)
 
 # optional, only for this session:
 # hermes model    # pick provider pollinations

@@ -29,7 +29,7 @@ command (that sets `model.provider` and `model.default` to Pollinations).
 
 - `hermes` on `PATH` (`hermes config set` / `hermes config get`).
 - Network access to `https://gen.pollinations.ai/v1/models` (no key required).
-- No API key. Keys stay in the user's own `.env`, never in `config.yaml`.
+- No API key. Keys stay in the user's own secret storage, never in `config.yaml`.
 
 ## Procedure
 
@@ -49,8 +49,8 @@ command (that sets `model.provider` and `model.default` to Pollinations).
    `model.provider` / `model.default` match the values from before the apply.
 
 3. Tell the user to reopen the provider picker. The key slot is
-   `HERMES_CUSTOM_POLLINATIONS_API_KEY`. They add it themselves
-   (`hermes auth add pollinations` or by editing `~/.hermes/.env`).
+   `HERMES_CUSTOM_POLLINATIONS_API_KEY`. They add it themselves via
+   `hermes auth add pollinations` or by exporting that variable in their shell.
    Do not ask them to paste an `sk_` key into chat.
 
 ## Pitfalls

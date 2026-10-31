@@ -13,7 +13,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import re
 import shutil
 import subprocess
@@ -115,27 +114,19 @@ def hermes_bin() -> str:
     return found
 
 
-def hermes_env(home: str | None) -> dict[str, str]:
-    env = os.environ.copy()
-    if home:
-        env["HERMES_HOME"] = home
-    return env
-
-
-def hermes_get(key: str, env: dict[str, str], *, as_json: bool = False) -> str:
+def hermes_get(key: str, *, as_json: bool = False) -> str:
     cmd = [hermes_bin(), "config", "get", key]
     if as_json:
         cmd.append("--json")
-    proc = subprocess.run(cmd, env=env, capture_output=True, text=True, timeout=30)
+    proc = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
     if proc.returncode != 0:
         raise SystemExit(f"hermes config get {key} failed: {proc.stderr.strip() or proc.stdout.strip()}")
     return proc.stdout.strip()
 
 
-def hermes_set(key: str, value: str, env: dict[str, str]) -> None:
+def hermes_set(key: str, value: str) -> None:
     proc = subprocess.run(
         [hermes_bin(), "config", "set", key, value],
-        env=env,
         capture_output=True,
         text=True,
         timeout=30,
@@ -144,25 +135,36 @@ def hermes_set(key: str, value: str, env: dict[str, str]) -> None:
         raise SystemExit(f"hermes config set {key} failed: {proc.stderr.strip() or proc.stdout.strip()}")
 
 
-def snapshot_defaults(env: dict[str, str]) -> tuple[str, str]:
-    return hermes_get("model.provider", env), hermes_get("model.default", env)
+def snapshot_defaults() -> tuple[str, str]:
+    return hermes_get("model.provider"), hermes_get("model.default")
 
 
-def install_plugin(home: str | None) -> Path:
+def hermes_home_path(cli_home: str | None) -> Path:
+    """Resolve the Hermes home directory for file operations.
+
+    The --home argument is used for filesystem paths only; `hermes config set`
+    still reads HERMES_HOME from the invoking shell. If those differ, the script
+    aborts so config and plugin files stay in the same Hermes installation.
+    """
+    if cli_home:
+        target = Path(cli_home).expanduser().resolve()
+    else:
+        target = Path.home() / ".hermes"
+    return target
+
+
+def install_plugin(home: Path) -> Path:
     """Copy the bundled model-provider plugin into $HERMES_HOME/plugins/model-providers/pollinations."""
     script_dir = Path(__file__).resolve().parent
     plugin_src = script_dir.parent / "plugins" / "model-providers" / PROVIDER
     if not plugin_src.exists():
         raise SystemExit(f"bundled plugin not found at {plugin_src}")
-    target_home = Path(home).expanduser().resolve() if home else Path.home() / ".hermes"
-    target = target_home / "plugins" / "model-providers" / PROVIDER
-    if target.exists():
-        shutil.rmtree(target)
-    shutil.copytree(plugin_src, target)
+    target = home / "plugins" / "model-providers" / PROVIDER
+    shutil.copytree(plugin_src, target, dirs_exist_ok=True)
     return target
 
 
-def apply_entry(base_url: str, model: str, env: dict[str, str]) -> None:
+def apply_entry(base_url: str, model: str) -> None:
     key_env = key_env_for(PROVIDER)
     fields = {
         f"providers.{PROVIDER}.name": PROVIDER,
@@ -173,11 +175,11 @@ def apply_entry(base_url: str, model: str, env: dict[str, str]) -> None:
         f"providers.{PROVIDER}.key_env": key_env,
     }
     for key, value in fields.items():
-        hermes_set(key, value, env)
+        hermes_set(key, value)
 
 
-def verify(base_url: str, model: str, before: tuple[str, str], env: dict[str, str]) -> dict:
-    raw = hermes_get(f"providers.{PROVIDER}", env, as_json=True)
+def verify(base_url: str, model: str, before: tuple[str, str]) -> dict:
+    raw = hermes_get(f"providers.{PROVIDER}", as_json=True)
     entry = json.loads(raw)
     expected = {
         "name": PROVIDER,
@@ -189,7 +191,7 @@ def verify(base_url: str, model: str, before: tuple[str, str], env: dict[str, st
     mismatches = [k for k, v in expected.items() if entry.get(k) != v]
     if entry.get("discover_models") is not True:
         mismatches.append("discover_models")
-    after = snapshot_defaults(env)
+    after = snapshot_defaults()
     if after != before:
         raise SystemExit(f"default model changed: {before} -> {after}")
     if mismatches:
@@ -203,7 +205,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--base-url", default="", help="Force this endpoint. Still probed. No write if probe fails.")
     parser.add_argument("--model", default="", help="Provider-row default model. Must be in live catalog unless --allow-missing-model.")
     parser.add_argument("--allow-missing-model", action="store_true")
-    parser.add_argument("--home", default="", help="HERMES_HOME for this run. Does not change the process default.")
+    parser.add_argument("--home", default="", help="Hermes home directory for plugin copy. Config writes still use the hermes CLI.")
     args = parser.parse_args(argv)
 
     candidates = [args.base_url.strip()] if args.base_url.strip() else [DEFAULT_BASE]
@@ -222,12 +224,12 @@ def main(argv: list[str] | None = None) -> int:
         print("dry-run (pass --apply to write providers.pollinations and install plugin)")
         return 0
 
-    env = hermes_env(args.home.strip() or None)
-    plugin_dir = install_plugin(args.home.strip() or None)
+    home = hermes_home_path(args.home.strip() or None)
+    plugin_dir = install_plugin(home)
     print(f"plugin {plugin_dir}")
-    before = snapshot_defaults(env)
-    apply_entry(base_url, model, env)
-    entry = verify(base_url, model, before, env)
+    before = snapshot_defaults()
+    apply_entry(base_url, model)
+    entry = verify(base_url, model, before)
     print("verified")
     print(json.dumps({"providers.pollinations": entry, "model.provider": before[0], "model.default": before[1]}))
     return 0
